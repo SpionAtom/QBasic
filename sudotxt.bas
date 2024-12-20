@@ -15,11 +15,12 @@ TYPE Koord
     zeile AS INTEGER
     spalte AS INTEGER
 END TYPE
+DECLARE SUB ErmittleSichtbarkeit (zeile, spalte, textverarbeitung)
+DECLARE FUNCTION SudokuGewonnen ()
 DECLARE SUB PrintCursor (c AS Koord)
 DECLARE SUB PrintSudoku ()
 DECLARE SUB LadeSudoku (n)
 DECLARE FUNCTION ermittleHaus (zeile, spalte)
-
 S1:
 DATA 0, 0, 0, 1, 2, 3, 0, 8, 0
 DATA 1, 0, 0, 0, 0, 0, 0, 3, 7
@@ -34,29 +35,46 @@ DATA 0, 5, 0, 6, 0, 8, 0, 0, 1
 DIM SHARED sudo(0 TO 8, 0 TO 8)
 DIM SHARED sudoInit(0 TO 8, 0 TO 8)
 DIM SHARED sudoNotiz$(0 TO 8, 0 TO 8)
-DIM Cursor AS Koord
+DIM SHARED sichtbar(1 TO 9), sichtbarText$, nichtsichtbar(1 TO 9), nichtsichtbarText$
+DIM cursor AS Koord
 
 LadeSudoku 1
-Cursor.zeile = 4
-Cursor.spalte = 4
+cursor.zeile = 4
+cursor.spalte = 4
+gewonnen = 0
+
 
 SCREEN 0, , 1, 0
 
+
     DO
         'Eingabe
+        bearbeitet = 0
         taste$ = INKEY$
         SELECT CASE taste$
-            CASE CHR$(0) + "H": IF Cursor.zeile > 0 THEN Cursor.zeile = Cursor.zeile - 1
-            CASE CHR$(0) + "P": IF Cursor.zeile < 8 THEN Cursor.zeile = Cursor.zeile + 1
-            CASE CHR$(0) + "K": IF Cursor.spalte > 0 THEN Cursor.spalte = Cursor.spalte - 1
-            CASE CHR$(0) + "M": IF Cursor.spalte < 8 THEN Cursor.spalte = Cursor.spalte + 1
-            CASE "0" TO "9": IF sudoInit(Cursor.zeile, Cursor.spalte) = 0 THEN sudo(Cursor.zeile, Cursor.spalte) = VAL(taste$)
+            CASE CHR$(0) + "H": IF cursor.zeile > 0 THEN cursor.zeile = cursor.zeile - 1
+            CASE CHR$(0) + "P": IF cursor.zeile < 8 THEN cursor.zeile = cursor.zeile + 1
+            CASE CHR$(0) + "K": IF cursor.spalte > 0 THEN cursor.spalte = cursor.spalte - 1
+            CASE CHR$(0) + "M": IF cursor.spalte < 8 THEN cursor.spalte = cursor.spalte + 1
+            CASE "0" TO "9": IF sudoInit(cursor.zeile, cursor.spalte) = 0 THEN sudo(cursor.zeile, cursor.spalte) = VAL(taste$): bearbeitet = 1
         END SELECT
+
+        'Verarbeitung
+        IF bearbeitet = 1 THEN
+            IF SudokuGewonnen THEN gewonnen = 1 ELSE gewonnen = 0
+        END IF
+
+        ErmittleSichtbarkeit cursor.zeile, cursor.spalte, 1
 
         'Ausgabe
         CLS
         PrintSudoku
-        PrintCursor Cursor
+        PrintCursor cursor
+        COLOR 7, 0
+            sb$ = sichtbar$(cursor.zeile, cursor.spalte)
+        LOCATE 19, 1: PRINT sichtbarText$;
+        LOCATE 20, 1: PRINT nichtsichtbarText$;
+        IF gewonnen = 1 THEN COLOR 14: LOCATE 22, 1: PRINT "Gewonnen!"
         PCOPY 1, 0
         COLOR 7, 0
     LOOP UNTIL taste$ = CHR$(27)
@@ -67,6 +85,71 @@ SCREEN 0, , 1, 0
 FUNCTION ermittleHaus (zeile, spalte)
     ermittleHaus = 3 * INT(zeile / 3) + INT(spalte / 3)
 END FUNCTION
+
+'Ermittelt fÅr ein Feld, welche anderen Ziffern gesehen werden kînnen.
+'Und welche nicht gesehen werden kînnen.
+'Und bastelt Ausgabestrings, wenn textverarbeitung = 1.
+SUB ErmittleSichtbarkeit (zeile, spalte, textverarbeitung)
+
+    FOR n = 1 TO 9
+        sichtbar(n) = 0
+        nichtsichtbar(n) = 1
+    NEXT
+
+    'Sammle alle Ziffern aus der Zeile
+    FOR s = 0 TO 8
+        ziffer = sudo(zeile, s)
+        zifferZeichen$ = LTRIM$(STR$(ziffer))
+        IF ziffer > 0 THEN
+            sichtbar(ziffer) = 1
+            nichtsichtbar(ziffer) = 0
+        END IF
+    NEXT
+
+    'Sammle alle Ziffern aus der Spalte
+    FOR s = 0 TO 8
+        ziffer = sudo(s, spalte)
+        zifferZeichen$ = LTRIM$(STR$(ziffer))
+        IF ziffer > 0 THEN
+            sichtbar(ziffer) = 1
+            nichtsichtbar(ziffer) = 0
+        END IF
+    NEXT
+
+    'Sammle alle Ziffern aus dem Haus
+    HausZeile = 3 * INT(zeile / 3)
+    HausSpalte = 3 * INT(spalte / 3)
+    FOR z = HausZeile TO HausZeile + 2
+    FOR s = HausSpalte TO HausSpalte + 2
+        ziffer = sudo(z, s)
+        zifferZeichen$ = LTRIM$(STR$(ziffer))
+        IF ziffer > 0 THEN
+            sichtbar(ziffer) = 1
+            nichtsichtbar(ziffer) = 0
+        END IF
+    NEXT
+    NEXT
+
+    'String fÅr Ausgabe vorbereiten
+    IF textverarbeitung = 0 THEN EXIT SUB
+    sichtbarText$ = ""
+    nichtsichtbarText$ = ""
+    FOR n = 1 TO 9
+        IF sichtbar(n) = 1 THEN
+            IF sichtbarText$ <> "" THEN sichtbarText$ = sichtbarText$ + ","
+            sichtbarText$ = sichtbarText$ + STR$(n)
+        END IF
+        IF nichtsichtbar(n) = 1 THEN
+            IF nichtsichtbarText$ <> "" THEN nichtsichtbarText$ = nichtsichtbarText$ + ","
+            nichtsichtbarText$ = nichtsichtbarText$ + STR$(n)
+        END IF
+    NEXT
+    sichtbarText$ = "Sichtbar: " + sichtbarText$
+    nichtsichtbarText$ = "Nicht sichtbar: " + nichtsichtbarText$
+
+
+
+END SUB
 
 'lÑdt ein Sudoku aus dem Data-Bestand
 'Erwartet wird eine Nummer, je nach Nummer wird ein anderes Sudoku geladen.
@@ -145,4 +228,23 @@ SUB PrintSudoku
     LOCATE 12, 24: PRINT "≈";
     COLOR 7, 0
 END SUB
+
+'PrÅft, ob das Sudoku gelîst wurde.
+'Alle Felder mÅssen volle Sichtbarkeit haben
+FUNCTION SudokuGewonnen
+
+    FOR zeile = 0 TO 8
+    FOR spalte = 0 TO 8
+        ErmittleSichtbarkeit zeile, spalte, 0
+        FOR n = 1 TO 9
+            IF nichtsichtbar(n) = 1 THEN SudokuGewonnen = 0: EXIT FUNCTION
+        NEXT
+    NEXT
+    NEXT
+
+    SudokuGewonnen = 1
+
+
+
+END FUNCTION
 
