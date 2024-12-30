@@ -60,6 +60,39 @@ DATA 0, 0, 0, 4, 0, 5, 0, 0, 0
 DATA 2, 0, 7, 0, 0, 0, 3, 0, 0
 DATA 9, 1, 0, 0, 7, 0, 0, 0, 0
 
+S4:
+DATA 0, 9, 6, 0, 0, 0, 0, 0, 8
+DATA 0, 0, 0, 3, 0, 0, 0, 4, 0
+DATA 0, 0, 0, 2, 4, 0, 0, 0, 0
+DATA 0, 0, 1, 0, 0, 0, 0, 8, 9
+DATA 0, 0, 0, 8, 0, 3, 7, 0, 0
+DATA 0, 0, 7, 5, 9, 0, 0, 0, 0
+DATA 0, 0, 2, 4, 5, 1, 0, 0, 0
+DATA 1, 0, 5, 0, 0, 6, 9, 0, 0
+DATA 3, 7, 0, 9, 8, 0, 1, 6, 0
+
+S5:
+DATA 9, 8, 4, 7, 3, 5, 0, 0, 0
+DATA 0, 0, 7, 0, 0, 0, 0, 0, 0
+DATA 0, 0, 3, 0, 0, 0, 5, 0, 7
+DATA 0, 0, 0, 9, 4, 0, 0, 1, 8
+DATA 0, 4, 9, 1, 0, 2, 0, 0, 0
+DATA 1, 3, 0, 0, 0, 0, 0, 4, 0
+DATA 0, 0, 0, 2, 0, 0, 0, 7, 0
+DATA 0, 7, 0, 4, 0, 8, 0, 0, 3
+DATA 4, 0, 1, 0, 6, 7, 0, 5, 0
+
+S6:
+DATA 0, 0, 7, 0, 0, 3, 0, 0, 1
+DATA 0, 0, 5, 1, 2, 0, 0, 4, 0
+DATA 2, 0, 0, 0, 0, 6, 0, 0, 0
+DATA 0, 0, 0, 0, 0, 2, 0, 0, 0
+DATA 0, 0, 4, 0, 0, 0, 9, 0, 0
+DATA 5, 0, 0, 7, 8, 0, 0, 0, 6
+DATA 8, 0, 0, 5, 1, 0, 0, 0, 7
+DATA 0, 7, 0, 0, 0, 0, 0, 6, 0
+DATA 0, 0, 0, 3, 0, 0, 0, 0, 0
+
 DIM SHARED sudo(0 TO 8, 0 TO 8) 'Das Spiel-Array. Speichert die Eingaben des Benutzers
 DIM SHARED sudoGueltig(0 TO 8, 0 TO 8) 'Das PrÅf-Array. Speichert 1, falls im Eingabe-Array eine gÅltige Ziffer ist, sonst 0
 DIM SHARED sudoInit(0 TO 8, 0 TO 8)
@@ -67,7 +100,7 @@ DIM SHARED sudoNotiz$(0 TO 8, 0 TO 8)
 DIM SHARED sichtbar(1 TO 9), sichtbarAnzahl, sichtbarText$, nichtsichtbar(1 TO 9), nichtsichtbarText$, nichtsichtbarAnzahl
 DIM cursor AS Koord
 
-LadeSudoku 3
+LadeSudoku 6
 cursor.zeile = 4
 cursor.spalte = 4
 gewonnen = 0
@@ -207,6 +240,12 @@ SUB LadeSudoku (n)
             RESTORE S2
         CASE 3:
             RESTORE S3
+        CASE 4:
+            RESTORE S4
+        CASE 5:
+            RESTORE S5
+        CASE 6:
+            RESTORE S6
         CASE ELSE:
             RESTORE S1
     END SELECT
