@@ -5,9 +5,13 @@
 '   Pfeiltasten = Cursor bewegen
 '           1-9 = Ziffer eintragen
 '             0 = Ziffer lîschen
+'            F1 = Finde Naked Singles und trage sie ein
+'            F2 = Finde Hidden Singles und trage sie ein
 '           Esc = Beenden
 
 
+'QB64 Magic, um kein so kleines Fenster zu haben
+'$Resize:Stretch
 
 
 DEFINT A-Z
@@ -15,6 +19,8 @@ TYPE Koord
     zeile AS INTEGER
     spalte AS INTEGER
 END TYPE
+DECLARE SUB TrageZifferEin (zeile, spalte, ziffer)
+DECLARE SUB LoesungsStrategie (n)
 DECLARE SUB ErmittleSichtbarkeit (zeile, spalte, textverarbeitung)
 DECLARE FUNCTION SudokuGewonnen ()
 DECLARE SUB PrintCursor (c AS Koord)
@@ -43,15 +49,25 @@ DATA 4, 0, 3, 5, 0, 0, 0, 0, 8
 DATA 5, 0, 0, 0, 2, 0, 7, 0, 0
 DATA 0, 6, 0, 0, 0, 8, 4, 1, 5
 
+S3:
+DATA 0, 0, 0, 0, 9, 0, 0, 8, 4
+DATA 0, 0, 8, 0, 0, 0, 5, 0, 7
+DATA 0, 0, 0, 6, 0, 8, 0, 0, 0
+DATA 8, 0, 0, 9, 0, 0, 0, 0, 5
+DATA 0, 9, 0, 3, 0, 1, 0, 2, 0
+DATA 6, 0, 0, 0, 0, 4, 0, 0, 3
+DATA 0, 0, 0, 4, 0, 5, 0, 0, 0
+DATA 2, 0, 7, 0, 0, 0, 3, 0, 0
+DATA 9, 1, 0, 0, 7, 0, 0, 0, 0
 
 DIM SHARED sudo(0 TO 8, 0 TO 8) 'Das Spiel-Array. Speichert die Eingaben des Benutzers
 DIM SHARED sudoGueltig(0 TO 8, 0 TO 8) 'Das PrÅf-Array. Speichert 1, falls im Eingabe-Array eine gÅltige Ziffer ist, sonst 0
 DIM SHARED sudoInit(0 TO 8, 0 TO 8)
 DIM SHARED sudoNotiz$(0 TO 8, 0 TO 8)
-DIM SHARED sichtbar(1 TO 9), sichtbarText$, nichtsichtbar(1 TO 9), nichtsichtbarText$
+DIM SHARED sichtbar(1 TO 9), sichtbarAnzahl, sichtbarText$, nichtsichtbar(1 TO 9), nichtsichtbarText$, nichtsichtbarAnzahl
 DIM cursor AS Koord
 
-LadeSudoku 2
+LadeSudoku 3
 cursor.zeile = 4
 cursor.spalte = 4
 gewonnen = 0
@@ -73,19 +89,13 @@ SCREEN 0, , 1, 0
             CASE "0" TO "9"
                 IF sudoInit(cursor.zeile, cursor.spalte) = 0 THEN
                     eingabeZiffer = VAL(taste$)
-                    sudo(cursor.zeile, cursor.spalte) = eingabeZiffer
+                    TrageZifferEin cursor.zeile, cursor.spalte, eingabeZiffer
                     bearbeitet = 1
-                    ErmittleSichtbarkeit cursor.zeile, cursor.spalte, 0
-                    IF eingabeZiffer = 0 THEN
-                        sudoGueltig(cursor.zeile, cursor.spalte) = 0
-                    ELSEIF sichtbar(eingabeZiffer) = 1 THEN
-                        sudoGueltig(cursor.zeile, cursor.spalte) = 0
-                    ELSE
-                        sudoGueltig(cursor.zeile, cursor.spalte) = 1
-                    END IF
 
                 END IF
             'CASE "!": IF sudoInit(cursor.zeile, cursor.spalte) = 0 THEN sudoNotiz$(cursor.zeile, cursor.spalte) = RIGHT$(sudoNotiz$(cursor.zeile, cursor.spalte) + "1", 3): sudo(cursor.zeile, cursor.spalte) = 0
+            CASE CHR$(0) + CHR$(59): LoesungsStrategie 1: bearbeitet = 1 'Naked Singles
+            CASE CHR$(0) + CHR$(60): LoesungsStrategie 2: bearbeitet = 1 'Hidden Singles
         END SELECT
 
         'Verarbeitung
@@ -108,6 +118,7 @@ SCREEN 0, , 1, 0
         IF gewonnen = 1 THEN COLOR 14: LOCATE 22, 1: PRINT "Gewonnen!"
         PCOPY 1, 0
         COLOR 7, 0
+        
     LOOP UNTIL taste$ = CHR$(27)
     END
 
@@ -165,14 +176,18 @@ SUB ErmittleSichtbarkeit (zeile, spalte, textverarbeitung)
     IF textverarbeitung = 0 THEN EXIT SUB
     sichtbarText$ = ""
     nichtsichtbarText$ = ""
+    sichtbarAnzahl = 0
+    nichtsichtbarAnzahl = 0
     FOR n = 1 TO 9
         IF sichtbar(n) = 1 THEN
             IF sichtbarText$ <> "" THEN sichtbarText$ = sichtbarText$ + ","
             sichtbarText$ = sichtbarText$ + STR$(n)
+            sichtbarAnzahl = sichtbarAnzahl + 1
         END IF
         IF nichtsichtbar(n) = 1 THEN
             IF nichtsichtbarText$ <> "" THEN nichtsichtbarText$ = nichtsichtbarText$ + ","
             nichtsichtbarText$ = nichtsichtbarText$ + STR$(n)
+            nichtsichtbarAnzahl = nichtsichtbarAnzahl + 1
         END IF
     NEXT
     sichtbarText$ = "Sichtbar: " + sichtbarText$
@@ -190,6 +205,8 @@ SUB LadeSudoku (n)
     SELECT CASE n
         CASE 2:
             RESTORE S2
+        CASE 3:
+            RESTORE S3
         CASE ELSE:
             RESTORE S1
     END SELECT
@@ -208,6 +225,136 @@ SUB LadeSudoku (n)
         sudoNotiz$(zeile, spalte) = ""
     NEXT
     NEXT
+
+END SUB
+
+SUB LoesungsStrategie (n)
+
+    SELECT CASE n
+        CASE 1: 'Naked Singles
+        'Trage Åberall dort eine Ziffer ein, bei dem die Nichtsichtbaren
+        'Kandidaten auf eine Option begrenzt sind.
+            FOR zeile = 0 TO 8
+            FOR spalte = 0 TO 8
+                ErmittleSichtbarkeit zeile, spalte, 1
+                IF nichtsichtbarAnzahl = 1 THEN
+                    ziffer = -1
+                    FOR z = 1 TO 9
+                        IF nichtsichtbar(z) = 1 THEN ziffer = z
+                    NEXT
+                    TrageZifferEin zeile, spalte, ziffer
+                END IF
+            NEXT
+            NEXT
+       
+        CASE 2: 'Hidden Single
+        'PrÅfe fÅr jede Zeile/Spalte/Haus, ob ein Ziffernkandidat nur in
+        'einem unbelegten Feld vorkommt. Falls ja, handelt es sich um einen
+        'Hidden Single, den man fest eintragen kann.
+       
+        'PrÅfung der Zeilen
+        DIM PruefZiffernZaehler(1 TO 9)
+            FOR zeile = 0 TO 8
+                FOR pzz = 1 TO 9: PruefZiffernZaehler(pzz) = 0: NEXT
+                FOR spalte = 0 TO 8
+                    IF sudo(zeile, spalte) = 0 THEN
+                    ErmittleSichtbarkeit zeile, spalte, 1
+                        FOR z = 1 TO 9
+                            PruefZiffernZaehler(z) = PruefZiffernZaehler(z) + nichtsichtbar(z)
+                        NEXT
+                    END IF
+                NEXT
+                FOR z = 1 TO 9
+                    IF PruefZiffernZaehler(z) = 1 THEN 'Hidden Single gefunden
+                          'Ermittle nochmal die Position des Hidden Singles
+                          FOR spalte = 0 TO 8
+                              IF sudo(zeile, spalte) = 0 THEN
+                                    ErmittleSichtbarkeit zeile, spalte, 1
+                                    IF nichtsichtbar(z) = 1 THEN
+                                        TrageZifferEin zeile, spalte, z
+                                        EXIT FOR
+                                    END IF
+                              END IF
+                          NEXT
+                    END IF
+                NEXT
+            NEXT
+
+
+        'PrÅfung der Spalten
+            FOR spalte = 0 TO 8
+                FOR pzz = 1 TO 9: PruefZiffernZaehler(pzz) = 0: NEXT
+                FOR zeile = 0 TO 8
+                    IF sudo(zeile, spalte) = 0 THEN
+                    ErmittleSichtbarkeit zeile, spalte, 1
+                        FOR z = 1 TO 9
+                            PruefZiffernZaehler(z) = PruefZiffernZaehler(z) + nichtsichtbar(z)
+                        NEXT
+                    END IF
+                NEXT
+                FOR z = 1 TO 9
+                    IF PruefZiffernZaehler(z) = 1 THEN 'Hidden Single gefunden
+                          'Ermittle nochmal die Position des Hidden Singles
+                          FOR zeile = 0 TO 8
+                              IF sudo(zeile, spalte) = 0 THEN
+                                    ErmittleSichtbarkeit zeile, spalte, 1
+                                    IF nichtsichtbar(z) = 1 THEN
+                                        TrageZifferEin zeile, spalte, z
+                                        EXIT FOR
+                                    END IF
+                              END IF
+                          NEXT
+                    END IF
+                NEXT
+            NEXT
+
+        'PrÅfung der HÑuser
+            FOR haus = 0 TO 8
+                FOR pzz = 1 TO 9: PruefZiffernZaehler(pzz) = 0: NEXT
+                HausZeile = 3 * INT(haus / 3)
+                HausSpalte = 3 * INT(haus MOD 3)
+   
+                    FOR hz = HausZeile TO HausZeile + 2
+                    FOR hs = HausSpalte TO HausSpalte + 2
+                   
+                        IF sudo(hz, hs) = 0 THEN
+                            ErmittleSichtbarkeit hz, hs, 1
+                                FOR z = 1 TO 9
+                                PruefZiffernZaehler(z) = PruefZiffernZaehler(z) + nichtsichtbar(z)
+                                NEXT
+                        END IF
+                    NEXT
+                    NEXT
+
+                    FOR z = 1 TO 9
+                        IF PruefZiffernZaehler(z) = 1 THEN 'Hidden Single gefunden
+                              'Ermittle nochmal die Position des Hidden Singles
+                   
+                            FOR hz = HausZeile TO HausZeile + 2
+                            FOR hs = HausSpalte TO HausSpalte + 2
+                           
+                                IF sudo(hz, hs) = 0 THEN
+                                    ErmittleSichtbarkeit hz, hs, 1
+                                    IF nichtsichtbar(z) = 1 THEN
+                                        TrageZifferEin hz, hs, z
+                                        EXIT FOR
+                                    END IF
+                                END IF
+                            NEXT
+                            NEXT
+                        END IF
+                    NEXT
+            NEXT
+
+                     
+
+
+
+
+
+    END SELECT
+    
+
 
 END SUB
 
@@ -289,4 +436,20 @@ FUNCTION SudokuGewonnen
 
 
 END FUNCTION
+
+SUB TrageZifferEin (zeile, spalte, ziffer)
+
+    IF sudoInit(zeile, spalte) = 0 THEN
+        sudo(zeile, spalte) = ziffer
+        ErmittleSichtbarkeit zeile, spalte, 0
+        IF ziffer = 0 THEN
+            sudoGueltig(zeile, spalte) = 0
+        ELSEIF sichtbar(ziffer) = 1 THEN
+            sudoGueltig(zeile, spalte) = 0
+        ELSE
+            sudoGueltig(zeile, spalte) = 1
+        END IF
+    END IF
+
+END SUB
 
