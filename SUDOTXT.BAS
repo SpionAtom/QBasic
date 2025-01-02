@@ -1,4 +1,3 @@
-DECLARE SUB Spiel ()
 'Sudoku fÅr QBasic
 'von SpionAtom Dezember 2o24
 '
@@ -23,13 +22,12 @@ END TYPE
 TYPE SudokuFeld
 	wert AS INTEGER
 	init AS INTEGER
-	sichtbar AS STRING * 9
-	sichtbarAnzahl AS INTEGER
-	nichtsichtbar AS STRING * 9
-	nichtsichtbarAnzahl AS INTEGER
+	kandidatenAnzahl AS INTEGER
 	gueltig AS INTEGER
 	notiz AS STRING * 9
 END TYPE
+DECLARE SUB ErmittleKandidaten (zeile%, spalte%)
+DECLARE SUB Spiel ()
 DECLARE FUNCTION setzeZiffer$ (quelle$, Ziffer, wert)
 DECLARE SUB initEinheiten ()
 DECLARE SUB AusgabeSichtbarkeit (zeile, spalte)
@@ -44,6 +42,7 @@ DECLARE FUNCTION ermittleHaus (zeile, spalte)
 
 
 DIM SHARED sudo(0 TO 8, 0 TO 8) AS SudokuFeld
+DIM SHARED kandidaten(0 TO 8, 0 TO 8, 1 TO 9), kandidatenAnzahl
 
 'Einheit ist ein 3-Dimensionales Array, welches die Positionen aller Zeilen,
 'Spalten und HÑuser in sich trÑgt.
@@ -191,12 +190,12 @@ SUB AusgabeSichtbarkeit (zeile, spalte)
 	sichtbarAnzahl = 0
 	nichtsichtbarAnzahl = 0
 	FOR n = 1 TO 9
-		IF MID$(sudo(zeile, spalte).sichtbar, n, 1) = "1" THEN
+		IF kandidaten(zeile, spalte, n) = 0 THEN
 			IF sichtbarText$ <> "" THEN sichtbarText$ = sichtbarText$ + ","
 			sichtbarText$ = sichtbarText$ + STR$(n)
 			sichtbarAnzahl = sichtbarAnzahl + 1
 		END IF
-		IF MID$(sudo(zeile, spalte).nichtsichtbar, n, 1) = "1" THEN
+		IF kandidaten(zeile, spalte, n) = 1 THEN
 			IF nichtsichtbarText$ <> "" THEN nichtsichtbarText$ = nichtsichtbarText$ + ","
 			nichtsichtbarText$ = nichtsichtbarText$ + STR$(n)
 			nichtsichtbarAnzahl = nichtsichtbarAnzahl + 1
@@ -214,62 +213,46 @@ FUNCTION ermittleHaus (zeile, spalte)
 	ermittleHaus = 3 * INT(zeile / 3) + INT(spalte / 3)
 END FUNCTION
 
-'Ermittelt fÅr ein Feld, welche anderen Ziffern gesehen werden kînnen.
-'Und welche nicht gesehen werden kînnen.
-SUB ErmittleSichtbarkeit (zeile, spalte)
+SUB ErmittleKandidaten (zeile, spalte)
 
-	'Lîsche die bisherigen Sichtbarkeiten
-	sudo(zeile, spalte).sichtbar = "000000000"
-	sudo(zeile, spalte).sichtbarAnzahl = 0
-	sudo(zeile, spalte).nichtsichtbar = "111111111"
-	sudo(zeile, spalte).nichtsichtbarAnzahl = 0
-   
+	'Reset der Kandidaten
+	FOR k = 1 TO 9: kandidaten(zeile, spalte, k) = 0: NEXT
+	sudo(zeile, spalte).kandidatenAnzahl = 0
+
 	DIM tempPos AS Koord
 
-	'Sammle alle Ziffern aus der Zeile
+	
 	FOR p = 0 TO 8
+		'Sammle alle Ziffern aus der Zeile
 		tempPos = Einheit(eZEILE, zeile, p)
 		Ziffer = sudo(tempPos.zeile, tempPos.spalte).wert
-		zifferZeichen$ = LTRIM$(STR$(Ziffer))
 		IF Ziffer > 0 AND (NOT (tempPos.zeile = zeile AND tempPos.spalte = spalte)) THEN
-			sudo(zeile, spalte).sichtbar = setzeZiffer$(sudo(zeile, spalte).sichtbar, Ziffer, 1)
-			sudo(zeile, spalte).nichtsichtbar = setzeZiffer$(sudo(zeile, spalte).nichtsichtbar, Ziffer, 0)
+			kandidaten(zeile, spalte, Ziffer) = 1
 		END IF
-	NEXT
 
-	'Sammle alle Ziffern aus der Spalte
-	FOR p = 0 TO 8
+		'Sammle alle Ziffern aus der Spalte
 		tempPos = Einheit(eSPALTE, spalte, p)
 		Ziffer = sudo(tempPos.zeile, tempPos.spalte).wert
-		zifferZeichen$ = LTRIM$(STR$(Ziffer))
 		IF Ziffer > 0 AND (NOT (tempPos.zeile = zeile AND tempPos.spalte = spalte)) THEN
-			sudo(zeile, spalte).sichtbar = setzeZiffer$(sudo(zeile, spalte).sichtbar, Ziffer, 1)
-			sudo(zeile, spalte).nichtsichtbar = setzeZiffer$(sudo(zeile, spalte).nichtsichtbar, Ziffer, 0)
+			kandidaten(zeile, spalte, Ziffer) = 1
 		END IF
-	NEXT
 
-
-	'Sammle alle Ziffern aus dem Haus
-	haus = ermittleHaus(zeile, spalte)
-   
-	FOR p = 0 TO 8
+		'Sammle alle Ziffern aus dem Haus
+		haus = ermittleHaus(zeile, spalte)
 		tempPos = Einheit(eHAUS, haus, p)
 		Ziffer = sudo(tempPos.zeile, tempPos.spalte).wert
-		zifferZeichen$ = LTRIM$(STR$(Ziffer))
 		IF Ziffer > 0 AND (NOT (tempPos.zeile = zeile AND tempPos.spalte = spalte)) THEN
-			sudo(zeile, spalte).sichtbar = setzeZiffer$(sudo(zeile, spalte).sichtbar, Ziffer, 1)
-			sudo(zeile, spalte).nichtsichtbar = setzeZiffer$(sudo(zeile, spalte).nichtsichtbar, Ziffer, 0)
+			kandidaten(zeile, spalte, Ziffer) = 1
 		END IF
 	NEXT
 
-
-	'ZÑhle die sichtbaren und nichtsichtbaren
+	'Alle sichtbaren Ziffern des Feldes wurden gesammelt.
+	'Um die Kandidaten zu ermitteln, muss man das Array invertieren,
+	'denn nur die nichtsichtbaren sind die Kandidaten.
 	FOR n = 1 TO 9
-		IF MID$(sudo(zeile, spalte).sichtbar, n, 1) = "1" THEN sudo(zeile, spalte).sichtbarAnzahl = sudo(zeile, spalte).sichtbarAnzahl + 1
-		IF MID$(sudo(zeile, spalte).nichtsichtbar, n, 1) = "1" THEN sudo(zeile, spalte).nichtsichtbarAnzahl = sudo(zeile, spalte).nichtsichtbarAnzahl + 1
+		kandidaten(zeile, spalte, n) = 1 - kandidaten(zeile, spalte, n)
+		sudo(zeile, spalte).kandidatenAnzahl = sudo(zeile, spalte).kandidatenAnzahl + kandidaten(zeile, spalte, n)
 	NEXT
-
-
 
 END SUB
 
@@ -387,7 +370,8 @@ SUB LadeSudoku (n)
 	'Ermittle die initialen Sichtbarkeiten
 	FOR zeile = 0 TO 8
 	FOR spalte = 0 TO 8
-		ErmittleSichtbarkeit zeile, spalte
+		'ErmittleSichtbarkeit zeile, spalte
+		ErmittleKandidaten zeile, spalte
 		LOCATE zeile * 2 + 2, spalte * 4 + 1 + 1: PRINT "s";
 		PCOPY 1, 0
 
@@ -401,16 +385,16 @@ SUB LoesungsStrategie (n)
 	SELECT CASE n
 		CASE 1: 'Naked Singles
 		'Trage Åberall dort eine Ziffer ein, bei dem die Nichtsichtbaren
-		'Kandidaten auf eine Option begrenzt sind.
+		'Kandidaten auf eine einzige Option begrenzt sind.
 			FOR zeile = 0 TO 8
 			FOR spalte = 0 TO 8
 				LOCATE zeile * 2 + 2, spalte * 4 + 1 + 1: PRINT "N";
 				PCOPY 1, 0
-				ErmittleSichtbarkeit zeile, spalte
-				IF sudo(zeile, spalte).nichtsichtbarAnzahl = 1 THEN
+				ErmittleKandidaten zeile, spalte
+				IF sudo(zeile, spalte).kandidatenAnzahl = 1 THEN
 					Ziffer = -1
 					FOR z = 1 TO 9
-						IF MID$(sudo(zeile, spalte).nichtsichtbar, z, 1) = "1" THEN Ziffer = z
+						IF kandidaten(zeile, spalte, z) = 1 THEN Ziffer = z
 					NEXT
 					IF sudo(zeile, spalte).wert = 0 THEN
 						TrageZifferEin zeile, spalte, Ziffer
@@ -425,25 +409,25 @@ SUB LoesungsStrategie (n)
 		CASE 2: 'Hidden Single
 		'Ist in einer Zeile oder Spalte oder Haus ein Kandidat nur in einer
 		'Zelle vorhanden, ist dieses ein Hidden Single und wird eingetragen.
-		DIM kandidaten(1 TO 9), kandidatenKoords(1 TO 9) AS Koord, kkAnzahl
+		DIM kandidatenHS(1 TO 9), kandidatenKoords(1 TO 9) AS Koord, kkAnzahl
 		kkAnzahl = 0
 		DIM k AS Koord
 
 		   
 			'PrÅfe Zeilen
 			FOR e = 0 TO 8
-				FOR n = 1 TO 9: kandidaten(n) = 0: NEXT 'reset Kandidatenarray
+				FOR n = 1 TO 9: kandidatenHS(n) = 0: NEXT 'reset Kandidatenarray
 				FOR posi = 0 TO 8
 					k = Einheit(eZEILE, e, posi)
 					LOCATE k.zeile * 2 + 2, k.spalte * 4 + 1 + 1: PRINT "Z";
 					PCOPY 1, 0
 				   
-					ErmittleSichtbarkeit k.zeile, k.spalte
+					ErmittleKandidaten k.zeile, k.spalte
 					FOR n = 1 TO 9
 						IF sudo(k.zeile, k.spalte).wert = 0 THEN
-						IF MID$(sudo(k.zeile, k.spalte).nichtsichtbar, n, 1) = "1" THEN
-							kandidaten(n) = kandidaten(n) + 1
-							IF kandidaten(n) = 1 THEN 'Merke dir die Koordinaten beim ersten Fund eines Kandidaten
+						IF kandidaten(k.zeile, k.spalte, n) = 1 THEN
+							kandidatenHS(n) = kandidatenHS(n) + 1
+							IF kandidatenHS(n) = 1 THEN 'Merke dir die Koordinaten beim ersten Fund eines Kandidaten
 								kandidatenKoords(n).zeile = k.zeile
 								kandidatenKoords(n).spalte = k.spalte
 							END IF
@@ -453,7 +437,7 @@ SUB LoesungsStrategie (n)
 				NEXT
 
 				FOR kandidat = 1 TO 9
-					IF kandidaten(kandidat) = 1 THEN
+					IF kandidatenHS(kandidat) = 1 THEN
 						'Dieser Kandidat taucht nur an einer Stelle auf
 						k = kandidatenKoords(kandidat)
 						TrageZifferEin k.zeile, k.spalte, kandidat
@@ -466,18 +450,18 @@ SUB LoesungsStrategie (n)
 
 			'PrÅfe Spalten
 			FOR e = 0 TO 8
-				FOR n = 1 TO 9: kandidaten(n) = 0: NEXT 'reset Kandidatenarray
+				FOR n = 1 TO 9: kandidatenHS(n) = 0: NEXT 'reset Kandidatenarray
 				FOR posi = 0 TO 8
 					k = Einheit(eSPALTE, e, posi)
 					LOCATE k.zeile * 2 + 2, k.spalte * 4 + 1 + 1: PRINT "S";
 					PCOPY 1, 0
 
-					ErmittleSichtbarkeit k.zeile, k.spalte
+					ErmittleKandidaten k.zeile, k.spalte
 					FOR n = 1 TO 9
 						IF sudo(k.zeile, k.spalte).wert = 0 THEN
-						IF MID$(sudo(k.zeile, k.spalte).nichtsichtbar, n, 1) = "1" THEN
-							kandidaten(n) = kandidaten(n) + 1
-							IF kandidaten(n) = 1 THEN 'Merke dir die Koordinaten beim ersten Fund eines Kandidaten
+						IF kandidaten(k.zeile, k.spalte, n) = 1 THEN
+							kandidatenHS(n) = kandidatenHS(n) + 1
+							IF kandidatenHS(n) = 1 THEN 'Merke dir die Koordinaten beim ersten Fund eines Kandidaten
 								kandidatenKoords(n).zeile = k.zeile
 								kandidatenKoords(n).spalte = k.spalte
 							END IF
@@ -487,7 +471,7 @@ SUB LoesungsStrategie (n)
 				NEXT
 
 				FOR kandidat = 1 TO 9
-					IF kandidaten(kandidat) = 1 THEN
+					IF kandidatenHS(kandidat) = 1 THEN
 						'Dieser Kandidat taucht nur an einer Stelle auf
 						k = kandidatenKoords(kandidat)
 						TrageZifferEin k.zeile, k.spalte, kandidat
@@ -500,18 +484,18 @@ SUB LoesungsStrategie (n)
 		   
 			'PrÅfe HÑuser
 			FOR e = 0 TO 8
-				FOR n = 1 TO 9: kandidaten(n) = 0: NEXT 'reset Kandidatenarray
+				FOR n = 1 TO 9: kandidatenHS(n) = 0: NEXT 'reset Kandidatenarray
 				FOR posi = 0 TO 8
 					k = Einheit(eHAUS, e, posi)
 					LOCATE k.zeile * 2 + 2, k.spalte * 4 + 1 + 1: PRINT "H";
 					PCOPY 1, 0
 
-					ErmittleSichtbarkeit k.zeile, k.spalte
+					ErmittleKandidaten k.zeile, k.spalte
 					FOR n = 1 TO 9
 						IF sudo(k.zeile, k.spalte).wert = 0 THEN
-						IF MID$(sudo(k.zeile, k.spalte).nichtsichtbar, n, 1) = "1" THEN
-							kandidaten(n) = kandidaten(n) + 1
-							IF kandidaten(n) = 1 THEN 'Merke dir die Koordinaten beim ersten Fund eines Kandidaten
+						IF kandidaten(k.zeile, k.spalte, n) = 1 THEN
+							kandidatenHS(n) = kandidatenHS(n) + 1
+							IF kandidatenHS(n) = 1 THEN 'Merke dir die Koordinaten beim ersten Fund eines Kandidaten
 								kandidatenKoords(n).zeile = k.zeile
 								kandidatenKoords(n).spalte = k.spalte
 							END IF
@@ -521,7 +505,7 @@ SUB LoesungsStrategie (n)
 				NEXT
 
 				FOR kandidat = 1 TO 9
-					IF kandidaten(kandidat) = 1 THEN
+					IF kandidatenHS(kandidat) = 1 THEN
 						'Dieser Kandidat taucht nur an einer Stelle auf
 						k = kandidatenKoords(kandidat)
 						TrageZifferEin k.zeile, k.spalte, kandidat
@@ -600,22 +584,6 @@ SUB PrintSudoku
 	COLOR 7, 0
 END SUB
 
-'Hilfsfunktion fÅr die Strings sichtbar, nichtsichtbar und notiz.
-'Sie erlauben das setzen eines Wertes an eine bestimmte Position
-FUNCTION setzeZiffer$ (quelle$, Ziffer, wert)
-
-	wertString$ = LTRIM$(STR$(wert%))
-
-	IF Ziffer = 1 THEN
-		setzeZiffer$ = wertString$ + RIGHT$(quelle$, 8)
-	ELSEIF Ziffer = 9 THEN
-		setzeZiffer$ = LEFT$(quelle$, 8) + wertString$
-	ELSE
-		setzeZiffer$ = LEFT$(quelle$, Ziffer - 1) + wertString$ + RIGHT$(quelle$, 9 - Ziffer)
-	END IF
-
-END FUNCTION
-
 SUB Spiel
 SCREEN 0, , 1, 0
 DIM cursor AS Koord
@@ -661,7 +629,7 @@ gewonnen = 0
 		LOCATE 19, 1: PRINT sichtbarText$;
 		LOCATE 20, 1: PRINT nichtsichtbarText$;
 		LOCATE 19, 40: PRINT "GÅltig: "; sudo(cursor.zeile, cursor.spalte).gueltig;
-		LOCATE 20, 40: PRINT "Nicht sichtbare: "; sudo(cursor.zeile, cursor.spalte).nichtsichtbarAnzahl;
+		LOCATE 20, 40: PRINT "Nicht sichtbare: "; sudo(cursor.zeile, cursor.spalte).kandidatenAnzahl;
 		IF gewonnen = 1 THEN COLOR 14: LOCATE 22, 1: PRINT "Gewonnen!"
 		PCOPY 1, 0
 		COLOR 7, 0
@@ -689,13 +657,13 @@ FUNCTION SudokuGewonnen
 END FUNCTION
 
 SUB TrageZifferEin (zeile, spalte, Ziffer)
-
 	IF sudo(zeile, spalte).init = 0 THEN
 		sudo(zeile, spalte).wert = Ziffer
-		ErmittleSichtbarkeit zeile, spalte
+		'ErmittleSichtbarkeit zeile, spalte
+		ErmittleKandidaten zeile, spalte
 		IF Ziffer = 0 THEN
 			sudo(zeile, spalte).gueltig = 0
-		ELSEIF MID$(sudo(zeile, spalte).sichtbar, Ziffer, 1) = "1" THEN
+		ELSEIF kandidaten(zeile, spalte, Ziffer) = 0 THEN
 			sudo(zeile, spalte).gueltig = 0
 		ELSE
 			sudo(zeile, spalte).gueltig = 1
