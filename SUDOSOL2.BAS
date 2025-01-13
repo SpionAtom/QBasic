@@ -6,7 +6,7 @@ DIM SHARED sudo(0 TO 8, 0 TO 8), sudoInit(0 TO 8, 0 TO 8)
 
 
     'Lade ein Sudoku
-    RESTORE S2
+    RESTORE S1
     FOR zeile = 0 TO 8
     FOR spalte = 0 TO 8
         READ sudoInit(zeile, spalte)
@@ -26,7 +26,7 @@ DIM SHARED sudo(0 TO 8, 0 TO 8), sudoInit(0 TO 8, 0 TO 8)
         PrintSudoku
     ELSE
         LOCATE 12, 1
-        PRINT "Keine Lîsung gefunden"
+        PRINT "Keine Lîsung gefunden " + TIME$
     END IF
 
 
@@ -51,6 +51,17 @@ DATA 0, 0, 6, 2, 0, 0, 0, 0, 1
 DATA 4, 0, 3, 5, 0, 0, 0, 0, 8
 DATA 5, 0, 0, 0, 2, 0, 7, 0, 0
 DATA 0, 6, 0, 0, 0, 8, 4, 1, 5
+
+S1Unloesbar:
+DATA 0, 0, 0, 1, 2, 3, 0, 8, 0
+DATA 1, 0, 0, 0, 0, 0, 0, 3, 7
+DATA 0, 0, 8, 7, 4, 6, 9, 0, 0
+DATA 3, 0, 5, 0, 0, 0, 6, 2, 9
+DATA 7, 2, 6, 0, 0, 0, 0, 0, 0
+DATA 8, 0, 1, 0, 0, 0, 3, 0, 4
+DATA 0, 0, 7, 9, 0, 0, 2, 0, 3
+DATA 9, 0, 3, 4, 7, 0, 0, 6, 5
+DATA 0, 2, 0, 6, 0, 8, 0, 0, 1
 
 'PrÅft, ob eine Ziffer in der Zelle erlaubt ist
 FUNCTION erlaubt (zeile, spalte, ziffer)
