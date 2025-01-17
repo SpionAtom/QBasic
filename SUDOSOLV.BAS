@@ -1,10 +1,11 @@
-DECLARE SUB InitEinheiten ()
 DEFINT A-Z
+DECLARE SUB initKandidaten ()
+DECLARE SUB EntferneKandidat (zeile%, spalte%, ziffer%)
+DECLARE SUB EntferneKandidaten (zeile%, spalte%)
+DECLARE SUB InitEinheiten ()
 DECLARE FUNCTION Geloest ()
 DECLARE FUNCTION Strategie (strat)
-DECLARE SUB ErmittleAlleKandidaten ()
 DECLARE SUB TrageZifferEin (zeile, spalte, ziffer)
-DECLARE SUB ErmittleKandidaten (zeile, spalte)
 DECLARE SUB PrintSudoku ()
 DECLARE FUNCTION erlaubt (zeile, spalte, ziffer)
 DECLARE FUNCTION loeseSudokuIterativ ()
@@ -33,7 +34,6 @@ END TYPE
 '
 'All dieser Aufwand wird betrieben, um am Ende einheitlicher Åber diese
 'Einheiten iterieren zu kînnen.
-
 
     CONST eZEILE = 0, eSPALTE = 1, eHAUS = 2
     DIM SHARED Einheit(0 TO 2, 0 TO 8, 0 TO 8) AS Koord
@@ -74,7 +74,7 @@ END TYPE
     PRINT "Beginn: " + TIME$
     PrintSudoku
     LOCATE 12, 1: PRINT "in Bearbeitung:"
-    ErmittleAlleKandidaten
+    initKandidaten
    
     'Bevor es zum Backtracking geht, werden erstmal alle Strategien
     'erschîpft. Es wird Strategie 1 solange ausgefÅhrt, wie es erfolgreich
@@ -86,6 +86,7 @@ END TYPE
     locateZeile = 1
     locateSpalte = 20
     loesungAbgeschlossen = 0
+    
     DO
         FOR strat = 1 TO strategien
             strategieErfolgreich = Strategie(strat)
@@ -94,7 +95,6 @@ END TYPE
             IF locateZeile > 20 THEN
                 locateZeile = 1
                 locateSpalte = locateSpalte + 20
-                'FOR z = 1 TO 20: LOCATE z, 40: PRINT SPACE$(40); : NEXT
             END IF
            
             IF strategieErfolgreich = 1 THEN
@@ -105,7 +105,7 @@ END TYPE
             END IF
         NEXT
      LOOP WHILE strategieErfolgreich = 1 AND loesungAbgeschlossen = 0
-
+     
      IF loesungAbgeschlossen = 1 THEN
         LOCATE 13, 1
         PrintSudoku
@@ -181,6 +181,39 @@ DATA 8, 0, 0, 5, 1, 0, 0, 0, 7
 DATA 0, 7, 0, 0, 0, 0, 0, 6, 0
 DATA 0, 0, 0, 3, 0, 0, 0, 0, 0
 
+SUB EntferneKandidat (zeile, spalte, ziffer)
+
+    IF sudo(zeile, spalte) = 0 THEN
+        'Reduziere die Anzahl der Kandidaten
+        IF kandidaten(zeile, spalte, ziffer) = 1 THEN kandidaten(zeile, spalte, 0) = kandidaten(zeile, spalte, 0) - 1
+        'Setze Kandidat auf 0
+        kandidaten(zeile, spalte, ziffer) = 0
+    END IF
+
+END SUB
+
+'Erwartet als Parameter eine Koordinate vom Sudokufeld.
+'Findet sich an dieser Koordinate eine Ziffer <> 0, so werden in der
+'gesamten Zeile, Spalte und Haus diese Ziffer als Kandidaten gelîscht.
+SUB EntferneKandidaten (zeile, spalte)
+
+    ziffer = sudo(zeile, spalte)
+    IF ziffer = 0 THEN EXIT SUB
+
+    DIM k AS Koord
+    ermittleHaus = 3 * INT(zeile / 3) + INT(spalte / 3)
+    'Entferne Ziffer als Kandidat aus Zeile, Spalte und Haus
+    FOR e = 0 TO 8
+        k = Einheit(eZEILE, zeile, e)
+        EntferneKandidat k.zeile, k.spalte, ziffer
+        k = Einheit(eSPALTE, spalte, e)
+        EntferneKandidat k.zeile, k.spalte, ziffer
+        k = Einheit(eHAUS, ermittleHaus, e)
+        EntferneKandidat k.zeile, k.spalte, ziffer
+    NEXT
+
+END SUB
+
 'PrÅft, ob eine Ziffer in der Zelle erlaubt ist
 FUNCTION erlaubt (zeile, spalte, ziffer)
    
@@ -217,63 +250,12 @@ FUNCTION erlaubt (zeile, spalte, ziffer)
 
 END FUNCTION
 
-SUB ErmittleAlleKandidaten
-
-    FOR zeile = 0 TO 8
-    FOR spalte = 0 TO 8
-        ErmittleKandidaten zeile, spalte
-    NEXT
-    NEXT
-
-
-END SUB
-
-SUB ErmittleKandidaten (zeile, spalte)
-
-    'Kandidaten zurÅcksetzen
-    FOR ziffer = 0 TO 9
-        kandidaten(zeile, spalte, ziffer) = 1
-    NEXT
-
-    'PrÅfe Zeile
-    FOR s = 0 TO 8
-        IF s <> spalte AND sudo(zeile, s) <> 0 THEN
-            kandidaten(zeile, spalte, sudo(zeile, s)) = 0
-        END IF
-    NEXT
-
-    'PrÅfe Spalte
-    FOR z = 0 TO 8
-        IF z <> zeile AND sudo(z, spalte) <> 0 THEN
-            kandidaten(zeile, spalte, sudo(z, spalte)) = 0
-        END IF
-    NEXT
-
-    'PrÅfe Haus
-    hauszeile = zeile - zeile MOD 3
-    hausSpalte = spalte - spalte MOD 3
-    FOR z = hauszeile TO hauszeile + 2
-    FOR s = hausSpalte TO hausSpalte + 2
-        IF (z <> zeile OR s <> spalte) AND sudo(z, s) <> 0 THEN
-            kandidaten(zeile, spalte, sudo(z, s)) = 0
-        END IF
-    NEXT
-    NEXT
-
-    'ZÑhle die Kandidaten
-    kandidaten(zeile, spalte, 0) = 0
-    FOR ziffer = 1 TO 9
-        IF kandidaten(zeile, spalte, ziffer) = 1 THEN kandidaten(zeile, spalte, 0) = kandidaten(zeile, spalte, 0) + 1
-    NEXT
-    
-
-END SUB
-
 FUNCTION Geloest
 
     FOR zeile = 0 TO 8
     FOR spalte = 0 TO 8
-        IF kandidaten(zeile, spalte, 0) <> 1 THEN Geloest = 0: EXIT FUNCTION
+        'IF kandidaten(zeile, spalte, 0) <> 1 THEN Geloest = 0: EXIT FUNCTION
+        IF sudo(zeile, spalte) = 0 THEN Geloest = 0: EXIT FUNCTION
     NEXT
     NEXT
                                            
@@ -310,6 +292,31 @@ SUB InitEinheiten
             tempPos.spalte = 3 * INT(haus MOD 3) + INT(position MOD 3)
             Einheit(eHAUS, haus, position) = tempPos
         NEXT
+    NEXT
+
+END SUB
+
+SUB initKandidaten
+
+    'Setze alle Kandidaten auf sichtbar
+    FOR zeile = 0 TO 8
+    FOR spalte = 0 TO 8
+        FOR ziffer = 1 TO 9
+            kandidaten(zeile, spalte, ziffer) = 1
+        NEXT
+        IF sudo(zeile, spalte) <> 0 THEN
+            kandidaten(zeile, spalte, 0) = 1
+        ELSE
+            kandidaten(zeile, spalte, 0) = 9
+        END IF
+    NEXT
+    NEXT
+
+    'Entferne Kandidaten entsprechend der Sudoku-Regeln
+    FOR zeile = 0 TO 8
+    FOR spalte = 0 TO 8
+        EntferneKandidaten zeile, spalte
+    NEXT
     NEXT
 
 END SUB
@@ -479,7 +486,7 @@ FUNCTION Strategie (strat)
                 FOR posi = 0 TO 8
                     k = Einheit(eSPALTE, e, posi)
 
-                    ErmittleKandidaten k.zeile, k.spalte
+                    'ErmittleKandidaten k.zeile, k.spalte
                     FOR n = 1 TO 9
                         IF sudo(k.zeile, k.spalte) = 0 THEN
                         IF kandidaten(k.zeile, k.spalte, n) = 1 THEN
@@ -509,7 +516,7 @@ FUNCTION Strategie (strat)
                 FOR posi = 0 TO 8
                     k = Einheit(eHAUS, e, posi)
 
-                    ErmittleKandidaten k.zeile, k.spalte
+                    'ErmittleKandidaten k.zeile, k.spalte
                     FOR n = 1 TO 9
                         IF sudo(k.zeile, k.spalte) = 0 THEN
                         IF kandidaten(k.zeile, k.spalte, n) = 1 THEN
@@ -542,26 +549,7 @@ END FUNCTION
 SUB TrageZifferEin (zeile, spalte, ziffer)
 
     sudo(zeile, spalte) = ziffer
-
-    'Erneuere Zeilenkandidaten
-    FOR s = 0 TO 8
-        ErmittleKandidaten zeile, s
-    NEXT
-
-    'Erneuere Spaltenkandidaten
-    FOR z = 0 TO 8
-        ErmittleKandidaten z, spalte
-    NEXT
-
-    'Erneuere Hauskandidaten
-    hauszeile = zeile - zeile MOD 3
-    hausSpalte = spalte - spalte MOD 3
-    FOR z = 0 TO 2
-    FOR s = 0 TO 2
-        ErmittleKandidaten hauszeile + z, hausSpalte + s
-    NEXT
-    NEXT
-
+    EntferneKandidaten zeile, spalte
 
 END SUB
 
